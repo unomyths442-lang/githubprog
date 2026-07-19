@@ -46,7 +46,9 @@ async def track_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     config = load_json(CONFIG_FILE)
-    home_group = config.get("home_group_id")
+    home_group = config.get("home_group_id") or os.environ.get("HOME_GROUP_ID")
+    if home_group:
+        home_group = int(home_group)
 
     if home_group is None:
         config["home_group_id"] = chat.id
@@ -73,7 +75,9 @@ async def activity_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     chat = update.effective_chat
     config = load_json(CONFIG_FILE)
-    home_group = config.get("home_group_id")
+    home_group = config.get("home_group_id") or os.environ.get("HOME_GROUP_ID")
+    if home_group:
+        home_group = int(home_group)
 
     if chat.id != home_group:
         return
@@ -111,7 +115,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     config = load_json(CONFIG_FILE)
-    home_group = config.get("home_group_id")
+    home_group = config.get("home_group_id") or os.environ.get("HOME_GROUP_ID")
+    if home_group:
+        home_group = int(home_group)
 
     if home_group is None:
         config["home_group_id"] = chat.id
