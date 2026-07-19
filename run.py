@@ -243,6 +243,10 @@ async def main():
     app.add_handler(CommandHandler("activity", activity_command))
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, track_activity))
 
+    await app.initialize()
+    await app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+    await app.start()
+
     has_telethon = os.environ.get("API_ID") and os.environ.get("API_HASH")
     if has_telethon:
         stop_event = asyncio.Event()
@@ -251,9 +255,7 @@ async def main():
     else:
         logger.info("Telethon не настроен. Работаю только по сообщениям.")
 
-    logger.info("Запуск...")
-    await app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
-    await app.start()
+    logger.info("Бот запущен...")
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
