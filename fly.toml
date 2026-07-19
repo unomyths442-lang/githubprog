@@ -1,0 +1,13 @@
+app = "activetriggerbot"
+primary_region = "ams"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  BOT_TOKEN = "8275919663:AAF66WbIgYXjsoOioGyaeDR5hRGMVRmoIk0"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
