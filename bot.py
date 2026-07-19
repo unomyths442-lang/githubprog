@@ -62,9 +62,33 @@ async def track_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     activity = load_json(ACTIVITY_FILE)
     user_id = str(user.id)
+    now = datetime.now()
+
+    if user_id in activity:
+        try:
+            last = datetime.fromisoformat(activity[user_id]["last_active"])
+            diff = now - last
+            if diff.total_seconds() > 120:
+                lines = []
+                days, rem = divmod(int(diff.total_seconds()), 86400)
+                hours, rem = divmod(rem, 3600)
+                minutes = rem // 60
+                if days:
+                    lines.append(f"{days}д")
+                if hours:
+                    lines.append(f"{hours}ч")
+                lines.append(f"{minutes}мин")
+                away = " ".join(lines)
+                name = activity[user_id].get("username") or user.full_name
+                await update.message.reply_text(
+                    f"{name} — был в сети {away} назад ({last.strftime('%d.%m.%Y %H:%M:%S')})"
+                )
+        except Exception:
+            pass
+
     activity[user_id] = {
         "username": user.full_name,
-        "last_active": datetime.now().isoformat()
+        "last_active": now.isoformat()
     }
     save_json(ACTIVITY_FILE, activity)
 
