@@ -1,8 +1,10 @@
 import os
 from telethon import TelegramClient
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SESSION_FILE = os.path.join(BASE_DIR, "telethon.session")
+path = input("Куда сохранить telethon.session?\n(Enter = текущая папка, или введи путь вроде /sdcard/Download/): ").strip()
+if not path:
+    path = os.path.dirname(os.path.abspath(__file__))
+SESSION_FILE = os.path.join(path, "telethon.session")
 
 api_id = int(input("API ID: ").strip())
 api_hash = input("API HASH: ").strip()
