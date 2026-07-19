@@ -6,6 +6,7 @@ from datetime import datetime
 
 from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, filters, ContextTypes
+from telegram.request import HTTPXRequest
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
@@ -133,8 +134,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     token = os.environ.get("BOT_TOKEN", "8275919663:AAF66WbIgYXjsoOioGyaeDR5hRGMVRmoIk0")
+    proxy = os.environ.get("PROXY")
 
-    app = Application.builder().token(token).build()
+    builder = Application.builder().token(token)
+    if proxy:
+        request = HTTPXRequest(proxy=proxy, connection_pool_size=1)
+        builder = builder.request(request)
+    app = builder.build()
 
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("activity", activity_command))
