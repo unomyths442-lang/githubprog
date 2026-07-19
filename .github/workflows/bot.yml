@@ -23,7 +23,14 @@ jobs:
             tracked.json
           key: ${{ runner.os }}-bot-data
       - run: pip install -r requirements.txt
-      - run: python bot.py
+      - name: Restore Telethon session
+        uses: actions/cache@v4
+        with:
+          path: telethon.session
+          key: ${{ runner.os }}-telethon
+      - run: python run.py
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           HOME_GROUP_ID: -1003873919638
+          API_ID: ${{ secrets.API_ID }}
+          API_HASH: ${{ secrets.API_HASH }}
