@@ -51,21 +51,31 @@ async def track_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
         config = load_json(CONFIG_FILE)
         target_group = config.get("home_group_id") or os.environ.get("HOME_GROUP_ID")
         tracked_last = tracked.get("last_active")
+        notify = False
         if tracked_last:
             try:
                 last = datetime.fromisoformat(tracked_last)
                 diff = now - last
                 if diff.total_seconds() > 30:
-                    msg = (
-                        f"@{user.username} — активен: {now.strftime('%d.%m.%Y %H:%M:%S')} "
-                        f"(прошло {int(diff.total_seconds())}с)"
-                    )
-                    if target_group:
-                        await context.bot.send_message(chat_id=int(target_group), text=msg)
-                    else:
-                        await update.message.reply_text(msg)
+                    notify = True
             except Exception:
-                pass
+                notify = True
+        else:
+            notify = True
+        if notify:
+            msg = (
+                f"@{user.username} — активен: {now.strftime('%d.%m.%Y %H:%M:%S')}"
+            )
+            if tracked_last:
+                try:
+                    diff = now - datetime.fromisoformat(tracked_last)
+                    msg += f" (прошло {int(diff.total_seconds())}с)"
+                except Exception:
+                    pass
+            if target_group:
+                await context.bot.send_message(chat_id=int(target_group), text=msg)
+            else:
+                await update.message.reply_text(msg)
         tracked["last_active"] = now.isoformat()
         save_json(TRACKED_FILE, tracked)
         return
@@ -166,6 +176,33 @@ async def setuser_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Отслеживается пользователь @{username}")
 
 
+async def check_monitor(context: ContextTypes.DEFAULT_TYPE):
+    job = context.job
+    chat_id = job.data
+    tracked = load_json(TRACKED_FILE)
+    last_active = tracked.get("last_active")
+    if last_active:
+        try:
+            dt = datetime.fromisoformat(last_active)
+            diff = datetime.now() - dt
+            if diff.total_seconds() <= 35:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=f"@{tracked['username']} активен! Последний раз: {dt.strftime('%d.%m.%Y %H:%M:%S')}"
+                )
+                job.schedule_removal()
+                return
+        except Exception:
+            pass
+    diff = datetime.now() - job.created_at
+    if diff.total_seconds() > 300:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"@{tracked['username']} — активность не обнаружена за 5 минут. Мониторинг остановлен."
+        )
+        job.schedule_removal()
+
+
 async def checklastactive_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat:
         return
@@ -176,16 +213,25 @@ async def checklastactive_command(update: Update, context: ContextTypes.DEFAULT_
         await update.message.reply_text("Пользователь не задан. Используйте /setuser")
         return
     if not last_active:
-        await update.message.reply_text(f"@{username} — активность не обнаружена")
+        await update.message.reply_text(
+            f"@{username} — активность не обнаружена. Запущен мониторинг (каждые 30с)..."
+        )
+        context.job_queue.run_repeating(check_monitor, interval=30, first=10, data=update.effective_chat.id)
         return
     try:
         dt = datetime.fromisoformat(last_active)
         diff = datetime.now() - dt
         sec = int(diff.total_seconds())
-        await update.message.reply_text(
-            f"@{username} — последняя активность: {dt.strftime('%d.%m.%Y %H:%M:%S')} "
-            f"(прошло {sec}с)"
-        )
+        if sec > 30:
+            await update.message.reply_text(
+                f"@{username} — не активен (последний раз: {dt.strftime('%d.%m.%Y %H:%M:%S')}, прошло {sec}с). "
+                "Запущен мониторинг..."
+            )
+            context.job_queue.run_repeating(check_monitor, interval=30, first=10, data=update.effective_chat.id)
+        else:
+            await update.message.reply_text(
+                f"@{username} — активен! Последний раз: {dt.strftime('%d.%m.%Y %H:%M:%S')} (прошло {sec}с)"
+            )
     except Exception:
         await update.message.reply_text(f"@{username} — последняя активность: {last_active}")
 
