@@ -2,7 +2,7 @@ import json
 import os
 import sys
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, filters, ContextTypes
@@ -11,6 +11,7 @@ from telegram.request import HTTPXRequest
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
 ACTIVITY_FILE = os.path.join(BASE_DIR, "activity.json")
+TRACKED_FILE = os.path.join(BASE_DIR, "tracked.json")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,8 +42,32 @@ async def track_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
 
-    if chat.type == "private":
-        await update.message.reply_text("Бот работает только в группах.")
+    now = datetime.now()
+
+    tracked = load_json(TRACKED_FILE)
+    tracked_user = tracked.get("username", "").lower()
+
+    if tracked_user and user.username and user.username.lower() == tracked_user:
+        config = load_json(CONFIG_FILE)
+        target_group = config.get("home_group_id") or os.environ.get("HOME_GROUP_ID")
+        tracked_last = tracked.get("last_active")
+        if tracked_last:
+            try:
+                last = datetime.fromisoformat(tracked_last)
+                diff = now - last
+                if diff.total_seconds() > 60:
+                    msg = (
+                        f"@{user.username} — активен: {now.strftime('%d.%m.%Y %H:%M:%S')} "
+                        f"(прошло {int(diff.total_seconds())}с)"
+                    )
+                    if target_group:
+                        await context.bot.send_message(chat_id=int(target_group), text=msg)
+                    else:
+                        await update.message.reply_text(msg)
+            except Exception:
+                pass
+        tracked["last_active"] = now.isoformat()
+        save_json(TRACKED_FILE, tracked)
         return
 
     config = load_json(CONFIG_FILE)
@@ -62,13 +87,12 @@ async def track_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     activity = load_json(ACTIVITY_FILE)
     user_id = str(user.id)
-    now = datetime.now()
 
     if user_id in activity:
         try:
             last = datetime.fromisoformat(activity[user_id]["last_active"])
             diff = now - last
-            if diff.total_seconds() > 120:
+            if diff.total_seconds() > 60:
                 lines = []
                 days, rem = divmod(int(diff.total_seconds()), 86400)
                 hours, rem = divmod(rem, 3600)
@@ -129,6 +153,19 @@ async def activity_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n".join(lines))
 
 
+async def setuser_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.effective_chat:
+        return
+    if not context.args:
+        await update.message.reply_text("Использование: /setuser <username> (без @)")
+        return
+
+    username = context.args[0].strip().lower().lstrip("@")
+    tracked = {"username": username, "last_active": None}
+    save_json(TRACKED_FILE, tracked)
+    await update.message.reply_text(f"Отслеживается пользователь @{username}")
+
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat:
         return
@@ -173,6 +210,7 @@ def main():
     app = builder.build()
 
     app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("setuser", setuser_command))
     app.add_handler(CommandHandler("activity", activity_command))
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, track_activity))
 
