@@ -236,6 +236,34 @@ async def checklastactive_command(update: Update, context: ContextTypes.DEFAULT_
         await update.message.reply_text(f"@{username} — последняя активность: {last_active}")
 
 
+async def startactive_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.effective_chat:
+        return
+    tracked = load_json(TRACKED_FILE)
+    username = tracked.get("username")
+    last_active = tracked.get("last_active")
+    if not username:
+        await update.message.reply_text("Пользователь не задан. Используйте /setuser")
+        return
+    if not last_active:
+        await update.message.reply_text(f"@{username} — активность не обнаружена")
+        return
+    try:
+        dt = datetime.fromisoformat(last_active)
+        diff = datetime.now() - dt
+        sec = int(diff.total_seconds())
+        if sec > 30:
+            await update.message.reply_text(
+                f"@{username} — не активен (последний раз: {dt.strftime('%d.%m.%Y %H:%M:%S')}, прошло {sec}с)"
+            )
+        else:
+            await update.message.reply_text(
+                f"@{username} — активен! Последний раз: {dt.strftime('%d.%m.%Y %H:%M:%S')}"
+            )
+    except Exception:
+        await update.message.reply_text(f"@{username} — последняя активность: {last_active}")
+
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat:
         return
@@ -282,6 +310,7 @@ def main():
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("setuser", setuser_command))
     app.add_handler(CommandHandler("checklastactive", checklastactive_command))
+    app.add_handler(CommandHandler("startactive", startactive_command))
     app.add_handler(CommandHandler("activity", activity_command))
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, track_activity))
 
