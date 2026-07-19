@@ -212,22 +212,33 @@ async def checklastactive_command(update: Update, context: ContextTypes.DEFAULT_
     if not username:
         await update.message.reply_text("Пользователь не задан. Используйте /setuser")
         return
+
+    def start_monitor():
+        if context.job_queue:
+            context.job_queue.run_repeating(check_monitor, interval=30, first=10, data=update.effective_chat.id)
+            return True
+        return False
+
     if not last_active:
-        await update.message.reply_text(
-            f"@{username} — активность не обнаружена. Запущен мониторинг (каждые 30с)..."
-        )
-        context.job_queue.run_repeating(check_monitor, interval=30, first=10, data=update.effective_chat.id)
+        if start_monitor():
+            await update.message.reply_text(f"@{username} — активность не обнаружена. Запущен мониторинг (каждые 30с)...")
+        else:
+            await update.message.reply_text(f"@{username} — активность не обнаружена")
         return
     try:
         dt = datetime.fromisoformat(last_active)
         diff = datetime.now() - dt
         sec = int(diff.total_seconds())
         if sec > 30:
-            await update.message.reply_text(
-                f"@{username} — не активен (последний раз: {dt.strftime('%d.%m.%Y %H:%M:%S')}, прошло {sec}с). "
-                "Запущен мониторинг..."
-            )
-            context.job_queue.run_repeating(check_monitor, interval=30, first=10, data=update.effective_chat.id)
+            if start_monitor():
+                await update.message.reply_text(
+                    f"@{username} — не активен (последний раз: {dt.strftime('%d.%m.%Y %H:%M:%S')}, прошло {sec}с). "
+                    "Запущен мониторинг..."
+                )
+            else:
+                await update.message.reply_text(
+                    f"@{username} — не активен (последний раз: {dt.strftime('%d.%m.%Y %H:%M:%S')}, прошло {sec}с)"
+                )
         else:
             await update.message.reply_text(
                 f"@{username} — активен! Последний раз: {dt.strftime('%d.%m.%Y %H:%M:%S')} (прошло {sec}с)"
