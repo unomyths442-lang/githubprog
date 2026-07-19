@@ -46,7 +46,21 @@ async def telethon_monitor(token, target_group, stop_event):
 
     api_id = int(os.environ["API_ID"])
     api_hash = os.environ["API_HASH"]
-    client = TelegramClient(session_file, api_id, api_hash)
+    proxy_url = os.environ.get("PROXY")
+    proxy = None
+    if proxy_url:
+        parts = proxy_url.replace("socks5://", "").split("@")
+        if len(parts) == 2:
+            auth, host = parts
+            user, pw = auth.split(":")
+            host, port = host.split(":")
+            proxy = ("socks5", host, int(port), user, pw)
+        else:
+            host = parts[0]
+            if ":" in host:
+                host, port = host.split(":")
+                proxy = ("socks5", host, int(port), None, None)
+    client = TelegramClient(session_file, api_id, api_hash, proxy=proxy)
     await client.start()
 
     while not stop_event.is_set():
