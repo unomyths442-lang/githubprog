@@ -39,9 +39,13 @@ last_was_online = False
 async def telethon_monitor(token, target_group, stop_event):
     global last_was_online
 
+    session_file = os.path.join(BASE_DIR, "telethon.session")
+    if not os.path.exists(session_file):
+        logger.info("telethon.session не найден. Мониторинг онлайн отключён.")
+        return
+
     api_id = int(os.environ["API_ID"])
     api_hash = os.environ["API_HASH"]
-    session_file = os.path.join(BASE_DIR, "telethon.session")
     client = TelegramClient(session_file, api_id, api_hash)
     await client.start()
 
